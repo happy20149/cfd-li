@@ -12,3 +12,15 @@ doxygen_doc
 compile_commands.json
 .clangd
 *.spv
+*.vsidx
+*.lock
+*.db
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile

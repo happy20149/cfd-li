@@ -1,5 +1,5 @@
 # Definition of the minimum required cmake Version
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 # Definition of the Project
 # Later you can access the project variable like ${CFDLAB_SOURCE_DIR}
 project(CFDLAB VERSION 1.0 LANGUAGES CXX)
@@ -18,10 +18,12 @@ find_package(MPI REQUIRED)
 # find_package(Boost COMPONENTS filesystem REQUIRED)
 
 # VTK Library
+set(VTK_DIR "D:/VTK-8.2.0/out/install/lib/cmake/vtk-8.2")
+
 if(WIN32)
   find_package(VTK REQUIRED)
 else()
-  find_package(VTK 7 REQUIRED)
+  find_package(VTK 8.20 REQUIRED)
 endif()
 if (NOT VTK_FOUND)
   message("VTK not found")
