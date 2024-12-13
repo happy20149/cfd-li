@@ -1,4 +1,5 @@
 #include "Discretization.hpp"
+#include"controal_data.hpp"
 
 #include <assert.h>
 #include <cmath>
@@ -138,29 +139,58 @@ Real Discretization::laplacian_nu(const Matrix<Real> &P, Real nu, const Matrix<R
 Real Discretization::mean_strain_rate_squared(const Matrix<Real> &U, const Matrix<Real> &V, Matrix<Real> &S, int i,
                                               int j) {
     Real result = 0;
-    constexpr int METHOD = 0;
-    if (METHOD == 0) {
-        auto dx = _dx;
-        auto dy = _dy;
-        auto invdx = 1 / dx;
-        auto invdx2 = invdx * invdx;
-        auto invdy = 1 / dy;
-        auto invdy2 = invdy * invdy;
-        Real u_diff = U(i, j) - U(i - 1, j);
-        Real v_diff = V(i, j) - V(i, j - 1);
-        auto shear_1 = (U(i, j + 1) + U(i - 1, j + 1) - U(i, j - 1) - U(i - 1, j - 1)) * (0.25 * invdy);
-        auto shear_2 = (V(i + 1, j) + V(i + 1, j - 1) - V(i - 1, j) - V(i - 1, j - 1)) * (0.25 * invdx);
-        auto shear = shear_1 + shear_2;
-        result = (u_diff * u_diff) * invdx2 + v_diff * v_diff * invdy2 + shear * shear;
-    } else {
-        Real dudy = (interpolate(U, i - 1, j + 1, 1, 0) - interpolate(U, i - 1, j - 1, 1, 0)) / (2 * _dy);
-        Real dvdx = (interpolate(V, i + 1, j - 1, 0, 1) - interpolate(V, i - 1, j - 1, 0, 1)) / (2 * _dx);
-        Real dudx = (2 / 3) * (U(i, j) - U(i - 1, j)) / _dx;
-        Real dvdy = (2 / 3) * (V(i, j) - V(i, j - 1)) / _dx;
-        result = 2 * (dudy + dvdx + dudx + dvdy) * (dudy + dvdx + dudx + dvdy);
-        S(i, j) = (dudy + dvdx);
+    if (KE_REALIZEABLE)
+    {
+        // 计算速度梯度
+        Real dudx = (U(i + 1, j) - U(i - 1, j)) / (2.0 * _dx);
+        Real dvdy = (V(i, j + 1) - V(i, j - 1)) / (2.0 * _dy);
+        Real dudy = (U(i, j + 1) - U(i, j - 1)) / (2.0 * _dy);
+        Real dvdx = (V(i + 1, j) - V(i - 1, j)) / (2.0 * _dx);
+
+        // 计算应变率张量分量
+        Real Sxx = dudx;
+        Real Syy = dvdy;
+        Real Sxy = 0.5 * (dudy + dvdx);
+
+        // 计算应变率模平方
+        Real S_ij_squared = 2.0 * (Sxx * Sxx + Syy * Syy) + 4.0 * Sxy * Sxy;
+
+        // 更新应变率模 S
+        Real S_ij = sqrt(0.5 * S_ij_squared);
+        S(i, j) = S_ij;
+
+        result= S_ij_squared;
+    }
+    else
+    {
+        
+        constexpr int METHOD = 0;
+        if (METHOD == 0) {
+            auto dx = _dx;
+            auto dy = _dy;
+            auto invdx = 1 / dx;
+            auto invdx2 = invdx * invdx;
+            auto invdy = 1 / dy;
+            auto invdy2 = invdy * invdy;
+            Real u_diff = U(i, j) - U(i - 1, j);
+            Real v_diff = V(i, j) - V(i, j - 1);
+            auto shear_1 = (U(i, j + 1) + U(i - 1, j + 1) - U(i, j - 1) - U(i - 1, j - 1)) * (0.25 * invdy);
+            auto shear_2 = (V(i + 1, j) + V(i + 1, j - 1) - V(i - 1, j) - V(i - 1, j - 1)) * (0.25 * invdx);
+            auto shear = shear_1 + shear_2;
+            result = (u_diff * u_diff) * invdx2 + v_diff * v_diff * invdy2 + shear * shear;
+        }
+        else {
+            Real dudy = (interpolate(U, i - 1, j + 1, 1, 0) - interpolate(U, i - 1, j - 1, 1, 0)) / (2 * _dy);
+            Real dvdx = (interpolate(V, i + 1, j - 1, 0, 1) - interpolate(V, i - 1, j - 1, 0, 1)) / (2 * _dx);
+            Real dudx = (2 / 3) * (U(i, j) - U(i - 1, j)) / _dx;
+            Real dvdy = (2 / 3) * (V(i, j) - V(i, j - 1)) / _dx;
+            result = 2 * (dudy + dvdx + dudx + dvdy) * (dudy + dvdx + dudx + dvdy);
+            S(i, j) = (dudy + dvdx);
+        }
+        
     }
     return result;
+    
 }
 
 Real Discretization::diffusion(const Matrix<Real> &A, int i, int j) {

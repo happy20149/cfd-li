@@ -76,8 +76,8 @@ VIN_2        0
 #       number of processes in x and y direction
 #--------------------------------------------
 
-iproc         1
-jproc         1
+iproc         2
+jproc         2
 
 #--------------------------------------------
 #       turbulence model
@@ -87,7 +87,7 @@ jproc         1
 #       default is 0
 #--------------------------------------------
 
-model 3
+model 1
 
 #--------------------------------------------
 #      solver

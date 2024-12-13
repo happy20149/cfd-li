@@ -1,6 +1,6 @@
 #include "Fields.hpp"
 #include "Communication.hpp"
-
+#include"controal_data.hpp"
 #include <algorithm>
 #include <assert.h>
 #include <iostream>
@@ -85,10 +85,41 @@ void Fields::calculate_nu_t(Grid &grid, int turb_model) {
         auto kij = k(i, j);
         auto epsij = eps(i, j);
         if (turb_model == 1) {
-            nu_t(i, j) = fnu_coeff * 0.09 * kij * kij / epsij + _nu;
-        } else if (turb_model == 2) {
+            if (KE_REALIZEABLE)
+            {
+                // 常数 A0 和 As 的取值（根据文献或经验）
+                Real A0 = 4.0;
+                Real As = 0.9;
+
+                Real kij = k(i, j);
+                Real epsij = eps(i, j);
+
+                // 防止除零和负值
+                Real denominator = epsij + 1e-10;
+                Real numerator = kij / denominator;
+
+                // 计算 C_mu
+                Real C_mu = 1.0 / (A0 + As * _S(i, j) * numerator);
+
+                // 确保 C_mu 为正值
+                C_mu = std::max(double(C_mu), 1e-5);
+
+                // 计算湍流黏性系数
+                nu_t(i, j) = C_mu * kij * kij / epsij + _nu;
+
+                // 防止负值
+                nu_t(i, j) = std::max(nu_t(i, j), _nu);
+            }
+            else//standard ke nut
+            {
+                nu_t(i, j) = fnu_coeff * 0.09 * kij * kij / epsij + _nu;
+            }
+            
+        } 
+        else if (turb_model == 2) {
             nu_t(i, j) = kij / epsij + _nu;
-        } else if (turb_model == 3) { // K-omega SST
+        } 
+        else if (turb_model == 3) { // K-omega SST
             const Real a1 = 5.0 / 9.0;
             auto dist = current_cell->closest_dist;
             auto f2 = calculate_f2_sst(epsij, kij, dist);
@@ -167,32 +198,89 @@ void Fields::calculate_k_and_epsilon(Grid &grid, int turb_model) {
     auto K_OLD = _K;
     auto EPS_OLD = _EPS;
     if (turb_model == 1) { // K-epsilon
-        for (const auto &current_cell : grid.fluid_cells()) {
-            int i = current_cell->i();
-            int j = current_cell->j();
-            Real f2_coeff = 1;
-            auto nut = nu_t(i, j);
-            auto kij = K_OLD(i, j);
-            auto eij = EPS_OLD(i, j);
-            auto k1_1 = Discretization::convection_uKEPS(_U, K_OLD, i, j);
-            auto k1_2 = Discretization::convection_vKEPS(_V, K_OLD, i, j);
-            auto e1_1 = Discretization::convection_uKEPS(_U, EPS_OLD, i, j);
-            auto e1_2 = Discretization::convection_vKEPS(_V, EPS_OLD, i, j);
+        if (KE_REALIZEABLE)
+        {
+            // 常数定义
+            const Real sigma_k = 1.0;
+            const Real sigma_epsilon = 1.2;
+            const Real C2 = 1.9;
 
-            auto k2 = Discretization::laplacian_nu(K_OLD, _nu, _NU_I, _NU_J, i, j);
-            auto e2 = Discretization::laplacian_nu(EPS_OLD, _nu, _NU_I, _NU_J, i, j, 1.3);
+            for (const auto& current_cell : grid.fluid_cells()) {
+                int i = current_cell->i();
+                int j = current_cell->j();
 
-            auto k3 = nut * Discretization::mean_strain_rate_squared(_U, _V, _S,i, j);
-            auto e3 = 1.44 * eij * k3 / kij;
-            auto e4 = f2_coeff * 1.92 * eij * eij / kij;
-            auto kij_new = kij + _dt * (-(k1_1 + k1_2) + k2 + k3 - eij);
-            auto epsij_new = eij + _dt * (-(e1_1 + e1_2) + e2 + e3 - e4);
-            k(i, j) = kij_new;
-            eps(i, j) = epsij_new;
-            assert(kij_new > 0);
-            assert(epsij_new > 0);
-        } 
-    } else if (turb_model == 2) { // K-omega
+                // 提取当前单元的变量
+                Real kij = K_OLD(i, j);
+                Real eij = EPS_OLD(i, j);
+                Real nut = nu_t(i, j);
+                Real S_ij = _S(i, j); // 应变率模，需在之前已计算
+
+                // 计算对流项
+                auto k_conv = Discretization::convection_uKEPS(_U, K_OLD, i, j) +
+                    Discretization::convection_vKEPS(_V, K_OLD, i, j);
+                auto eps_conv = Discretization::convection_uKEPS(_U, EPS_OLD, i, j) +
+                    Discretization::convection_vKEPS(_V, EPS_OLD, i, j);
+
+                // 计算扩散项，考虑 σ_k 和 σ_ε
+                auto k_diff = Discretization::laplacian_nu(K_OLD, _nu, _NU_I, _NU_J, i, j, sigma_k);
+                auto eps_diff = Discretization::laplacian_nu(EPS_OLD, _nu, _NU_I, _NU_J, i, j, sigma_epsilon);
+
+                // 计算湍动能生产项 Pk
+                Real Pk = nut * S_ij * S_ij;
+
+                // 计算 η
+                Real eta = S_ij * kij / (eij + 1e-10);
+
+                // 计算 C1
+                Real C1 = std::max(0.43, eta / (eta + 5.0));
+
+                // 计算 ε 方程的源项
+                Real e3 = C1 * eij * Pk / (kij + 1e-10);
+                Real e4 = C2 * eij * eij / (kij + sqrt(_nu * eij) + 1e-10);
+
+                // 更新 k
+                Real dkdt = -k_conv + k_diff + Pk - eij;
+                Real kij_new = kij + _dt * dkdt;
+                k(i, j) = std::max(double(kij_new), 1e-8); // 防止负值
+
+                // 更新 ε
+                Real depsdt = -eps_conv + eps_diff + e3 - e4;
+                Real eij_new = eij + _dt * depsdt;
+                eps(i, j) = std::max(double(eij_new), 1e-8); // 防止负值
+
+            }
+        }
+        else// standard K-epsilon
+        {
+            for (const auto& current_cell : grid.fluid_cells()) {
+                int i = current_cell->i();
+                int j = current_cell->j();
+                Real f2_coeff = 1;
+                auto nut = nu_t(i, j);
+                auto kij = K_OLD(i, j);
+                auto eij = EPS_OLD(i, j);
+                auto k1_1 = Discretization::convection_uKEPS(_U, K_OLD, i, j);
+                auto k1_2 = Discretization::convection_vKEPS(_V, K_OLD, i, j);
+                auto e1_1 = Discretization::convection_uKEPS(_U, EPS_OLD, i, j);
+                auto e1_2 = Discretization::convection_vKEPS(_V, EPS_OLD, i, j);
+
+                auto k2 = Discretization::laplacian_nu(K_OLD, _nu, _NU_I, _NU_J, i, j);
+                auto e2 = Discretization::laplacian_nu(EPS_OLD, _nu, _NU_I, _NU_J, i, j, 1.3);
+
+                auto k3 = nut * Discretization::mean_strain_rate_squared(_U, _V, _S, i, j);
+                auto e3 = 1.44 * eij * k3 / kij;
+                auto e4 = f2_coeff * 1.92 * eij * eij / kij;
+                auto kij_new = kij + _dt * (-(k1_1 + k1_2) + k2 + k3 - eij);
+                auto epsij_new = eij + _dt * (-(e1_1 + e1_2) + e2 + e3 - e4);
+                k(i, j) = kij_new;
+                eps(i, j) = epsij_new;
+                assert(kij_new > 0);
+                assert(epsij_new > 0);
+            }
+        }
+        
+    } 
+    else if (turb_model == 2) { // K-omega
         for (const auto &current_cell : grid.fluid_cells()) {
             int i = current_cell->i();
             int j = current_cell->j();
@@ -219,7 +307,8 @@ void Fields::calculate_k_and_epsilon(Grid &grid, int turb_model) {
             assert(epsij_new > 0);
         } 
     
-    } else if (turb_model == 3) { // K-omega SST
+    } 
+    else if (turb_model == 3) { // K-omega SST
         for (const auto &current_cell : grid.fluid_cells()) {
             int i = current_cell->i();
             int j = current_cell->j();

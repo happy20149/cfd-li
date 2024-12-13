@@ -261,4 +261,7 @@ class Fields {
     Real _alpha;
     /// Whether we are solving the energy equation
     bool calc_temp;
+
+    /// 应变率张量的模，可实现的ke模型
+    Matrix<Real> _Ske;
 };
