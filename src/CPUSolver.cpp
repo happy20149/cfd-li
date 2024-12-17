@@ -265,3 +265,72 @@ void CPUSolver::build_pcg_matrix() {
         }
     }
 }
+
+void CPUSolver::solve_piso(Real& residual, uint32_t& iterations) {
+    residual = REAL_MAX;
+    iterations = 0;
+
+    // PISO迭代循环
+    while (iterations < _max_piso_iters && residual > _piso_tolerance) {
+        // 1. 压力求解
+        Real pressure_residual = 0.0;
+        if (solver_type == SolverType::SOR) {
+            pressure_residual = solve_sor();
+        }
+        else if (solver_type == SolverType::PCG) {
+            pressure_residual = solve_pcg(iterations);
+        }
+
+        // 2. 强制执行压力边界条件
+        for (const auto& boundary : _boundaries) {
+            boundary->enforce_p(_field);
+        }
+
+        // 3. 计算并修正预测速度场
+        _field.calculate_velocities(_grid);
+
+        // 4. 通信修正后的速度场
+        Communication::communicate(&params, _field.u_matrix());
+        Communication::communicate(&params, _field.v_matrix());
+
+        // 5. 强制执行速度边界条件
+        for (auto& boundary : _boundaries) {
+            boundary->enforce_uv(_field);
+        }
+
+        // 6. 计算残差以检查收敛
+        Real local_residual = 0.0;
+        for (auto& cell : _grid.fluid_cells()) {
+            int i = cell->i();
+            int j = cell->j();
+            Real divergence = (_field.u(i, j) - _field.u(i - 1, j)) / _grid.dx()
+                + (_field.v(i, j) - _field.v(i, j - 1)) / _grid.dy();
+            local_residual += divergence * divergence;
+        }
+        residual = Communication::reduce_all(local_residual, MPI_SUM);
+        residual = std::sqrt(residual / _grid.fluid_cells().size());
+
+        iterations++;
+    }
+
+    // 7. 速度修正步骤（确保质量守恒）
+    _field.calculate_velocities(_grid);
+    Communication::communicate(&params, _field.u_matrix());
+    Communication::communicate(&params, _field.v_matrix());
+
+    for (auto& boundary : _boundaries) {
+        boundary->enforce_uv(_field);
+    }
+
+    // 8. 计算最终残差
+    Real final_residual = 0.0;
+    for (auto& cell : _grid.fluid_cells()) {
+        int i = cell->i();
+        int j = cell->j();
+        Real divergence = (_field.u(i, j) - _field.u(i - 1, j)) / _grid.dx()
+            + (_field.v(i, j) - _field.v(i, j - 1)) / _grid.dy();
+        final_residual += divergence * divergence;
+    }
+    residual = Communication::reduce_all(final_residual, MPI_SUM);
+    residual = std::sqrt(residual / _grid.fluid_cells().size());
+}

@@ -1,4 +1,5 @@
 #include "Simulation.hpp"
+#include"controal_data.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -396,44 +397,106 @@ void Simulation::set_file_names(std::string file_name) {
 }
 
 void Simulation::simulate(Params &params) {
-    Real t = 0.0;
-    Real dt;
-    uint32_t timestep = 0;
-    Real output_counter = 0.0;
-    _solver->initialize();
-    while (t < _t_end) {
+    if (PISO)
+    {
+        Real t = 0.0;
+        Real dt;
+        uint32_t timestep = 0;
+        Real output_counter = 0.0;
+        _solver->initialize();
+        while (t < _t_end) {
 
-        // Print progress bar
-        if (params.world_rank == 0) logger.progress_bar(t, _t_end);
+            // 显示进度条
+            if (params.world_rank == 0) logger.progress_bar(t, _t_end);
 
-        _solver->solve_pre_pressure(dt);
-        uint32_t it;
-        Real res;
-        _solver->solve_pressure(res, it);
+            // 预测步
+            _solver->solve_pre_pressure(dt);
 
-        if (params.world_rank == 0) {
-            std::cout << "Iter count: " << it << " ";
+            // 一次压力求解与速度修正（原投影法）
+            Real res;
+            uint32_t it;
+            _solver->solve_pressure(res, it);
+
+            // 检查是否达到最大迭代次数
+            if (params.world_rank == 0 && it == _solver->get_max_piso_iters()) { // 使用基类方法
+                logger.max_iter_warning();
+            }
+
+            // 记录第一次迭代的信息
+            logger.write_log(timestep, t, dt, it, _solver->get_max_piso_iters(), res);
+
+            // =====================================
+            // 调用PISO的第二次压力求解与速度修正
+            // =====================================
+            Real res2;
+            uint32_t it2;
+            _solver->solve_piso(res2, it2);
+
+            // 检查第二次迭代是否达到最大次数
+            if (params.world_rank == 0 && it2 == _solver->get_max_piso_iters()) {
+                logger.max_iter_warning();
+            }
+
+            // 记录第二次迭代的信息
+            logger.write_log(timestep, t, dt, it2, _solver->get_max_piso_iters(), res2);
+
+            // 后处理步骤，如计算湍流量
+            _solver->solve_post_pressure();
+
+            // 输出结果（如果需要）
+            if (_solver->_should_out) {
+                output_vtk(timestep, params);
+                output_counter++;
+            }
+
+            t += dt;
+            timestep++;
+            _solver->_should_out = t >= output_counter * _output_freq;
         }
-
-        // Check if max_iter was reached
-        if (params.world_rank == 0 && it == _solver->_max_iter) {
-            logger.max_iter_warning();
-        }
-        // Output current timestep information
-        logger.write_log(timestep, t, dt, it, _solver->_max_iter, res);
         _solver->solve_post_pressure();
-        // Output u,v,p
-        if (_solver->_should_out) {
-            output_vtk(timestep, params);
-            output_counter++;
-        }
-
-        t += dt;
-        timestep++;
-        _solver->_should_out = t >= output_counter * _output_freq;
-        // output_vtk(timestep, params); // output every timestep for debugging
     }
-    _solver->solve_post_pressure();
+    else
+    {
+        Real t = 0.0;
+        Real dt;
+        uint32_t timestep = 0;
+        Real output_counter = 0.0;
+        _solver->initialize();
+        while (t < _t_end) {
+
+            // Print progress bar
+            if (params.world_rank == 0) logger.progress_bar(t, _t_end);
+
+            _solver->solve_pre_pressure(dt);
+            uint32_t it;
+            Real res;
+            _solver->solve_pressure(res, it);
+
+            if (params.world_rank == 0) {
+                std::cout << "Iter count: " << it << " ";
+            }
+
+            // Check if max_iter was reached
+            if (params.world_rank == 0 && it == _solver->_max_iter) {
+                logger.max_iter_warning();
+            }
+            // Output current timestep information
+            logger.write_log(timestep, t, dt, it, _solver->_max_iter, res);
+            _solver->solve_post_pressure();
+            // Output u,v,p
+            if (_solver->_should_out) {
+                output_vtk(timestep, params);
+                output_counter++;
+            }
+
+            t += dt;
+            timestep++;
+            _solver->_should_out = t >= output_counter * _output_freq;
+            // output_vtk(timestep, params); // output every timestep for debugging
+        }
+        _solver->solve_post_pressure();
+    }
+   
 }
 
 void Simulation::output_vtk(int timestep, Params &params) {

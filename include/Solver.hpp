@@ -31,6 +31,12 @@ struct Solver {
     virtual void initialize() {}
     Solver() = default;
 
+    // 添加PISO相关的纯虚拟方法
+    virtual void solve_piso(Real& residual, uint32_t& iterations) = 0;
+
+    // 添加获取PISO最大迭代次数的方法
+    virtual uint32_t get_max_piso_iters() const { return 0; }
+
     /// Field object to be used
     Fields _field;
     /// Grid object to work on

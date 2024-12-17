@@ -9,6 +9,16 @@
 struct CPUSolver : public Solver {
     CPUSolver() = default;
 
+    // PISO特有的成员变量
+    uint32_t _max_piso_iters = 3;    // PISO最大迭代次数
+    Real _piso_tolerance = 1e-6;     // PISO收敛容限
+
+    // 重写PISO方法
+    void solve_piso(Real& residual, uint32_t& iterations) override;
+
+    // 获取PISO最大迭代次数的方法
+    uint32_t get_max_piso_iters() const override { return _max_piso_iters; }
+
     /**
      * @brief Do extra initialization if necessary
      */
