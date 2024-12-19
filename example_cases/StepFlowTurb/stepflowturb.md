@@ -6,6 +6,18 @@ piso算法 层流单核
 
 ![1734341403404](C:\Users\LWJ\AppData\Roaming\Typora\typora-user-images\1734341403404.png)
 
+piso 4核并行
+
+![1734407049987](C:\Users\LWJ\AppData\Roaming\Typora\typora-user-images\1734407049987.png)
+
+
+
+simple 4核并行
+
+![1734414808768](C:\Users\LWJ\AppData\Roaming\Typora\typora-user-images\1734414808768.png)
+
+
+
 
 
 标准k epsilon 单核

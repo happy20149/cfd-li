@@ -103,6 +103,7 @@
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;vtkDomainsChemistry_AUTOINIT=1(vtkDomainsChemistryOpenGL2);vtkIOExport_INCLUDE="D:/turbulent-cfd-01/build2/CMakeFiles/vtkIOExport_AUTOINIT_vtkIOExportOpenGL2_vtkIOExportPDF.h";vtkRenderingContext2D_AUTOINIT=1(vtkRenderingContextOpenGL2);vtkRenderingCore_INCLUDE="D:/turbulent-cfd-01/build2/CMakeFiles/vtkRenderingCore_AUTOINIT_vtkInteractionStyle_vtkRenderingFreeType_vtkRenderingOpenGL2.h";vtkRenderingOpenGL2_AUTOINIT=1(vtkRenderingGL2PSOpenGL2);vtkRenderingVolume_AUTOINIT=1(vtkRenderingVolumeOpenGL2);LZ4_DLL_IMPORT=1;H5_BUILT_AS_DYNAMIC_LIB;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;vtkDomainsChemistry_AUTOINIT=1(vtkDomainsChemistryOpenGL2);vtkIOExport_INCLUDE=\"D:/turbulent-cfd-01/build2/CMakeFiles/vtkIOExport_AUTOINIT_vtkIOExportOpenGL2_vtkIOExportPDF.h\";vtkRenderingContext2D_AUTOINIT=1(vtkRenderingContextOpenGL2);vtkRenderingCore_INCLUDE=\"D:/turbulent-cfd-01/build2/CMakeFiles/vtkRenderingCore_AUTOINIT_vtkInteractionStyle_vtkRenderingFreeType_vtkRenderingOpenGL2.h\";vtkRenderingOpenGL2_AUTOINIT=1(vtkRenderingGL2PSOpenGL2);vtkRenderingVolume_AUTOINIT=1(vtkRenderingVolumeOpenGL2);LZ4_DLL_IMPORT=1;H5_BUILT_AS_DYNAMIC_LIB;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>

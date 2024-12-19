@@ -1,5 +1,6 @@
 #include "CPUSolver.hpp"
 #include "Communication.hpp"
+#include<omp.h>
 
 void CPUSolver::initialize() {
     if (solver_type == SolverType::PCG) {

@@ -3,4 +3,4 @@
 //是否开启可实现的ke模型
 #define KE_REALIZEABLE 1
 
-#define PISO 1
+#define PISO 0

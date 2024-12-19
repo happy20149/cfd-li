@@ -396,54 +396,188 @@ void Simulation::set_file_names(std::string file_name) {
     }
 }
 
-void Simulation::simulate(Params &params) {
-    if (PISO)
-    {
+//void Simulation::simulate(Params& params) {
+//    double start_time = MPI_Wtime(); // 记录开始时间
+//
+//    if (PISO)
+//    {
+//        Real t = 0.0;
+//        Real dt;
+//        uint32_t timestep = 0;
+//        Real output_counter = 0.0;
+//        _solver->initialize();
+//        while (t < _t_end) {
+//
+//            // 显示进度条
+//            if (params.world_rank == 0) logger.progress_bar(t, _t_end);
+//
+//            double pre_press_start = MPI_Wtime();
+//            // 预测步
+//            _solver->solve_pre_pressure(dt);
+//            double pre_press_end = MPI_Wtime();
+//
+//            double press_start = MPI_Wtime();
+//            // 一次压力求解与速度修正（原投影法）
+//            Real res;
+//            uint32_t it;
+//            _solver->solve_pressure(res, it);
+//            double press_end = MPI_Wtime();
+//
+//            // 检查是否达到最大迭代次数
+//            if (params.world_rank == 0 && it == _solver->get_max_piso_iters()) { // 使用基类方法
+//                logger.max_iter_warning();
+//            }
+//
+//            // 记录第一次迭代的信息
+//            logger.write_log(timestep, t, dt, it, _solver->get_max_piso_iters(), res);
+//
+//            // =====================================
+//            // 调用PISO的第二次压力求解与速度修正
+//            // =====================================
+//            double piso_start = MPI_Wtime();
+//            Real res2;
+//            uint32_t it2;
+//            _solver->solve_piso(res2, it2);
+//            double piso_end = MPI_Wtime();
+//
+//            // 检查第二次迭代是否达到最大次数
+//            if (params.world_rank == 0 && it2 == _solver->get_max_piso_iters()) {
+//                logger.max_iter_warning();
+//            }
+//
+//            // 记录第二次迭代的信息
+//            logger.write_log(timestep, t, dt, it2, _solver->get_max_piso_iters(), res2);
+//
+//            // 后处理步骤，如计算湍流量
+//            _solver->solve_post_pressure();
+//
+//            // 输出结果（如果需要）
+//            if (_solver->_should_out) {
+//                output_vtk(timestep, params);
+//                output_counter++;
+//            }
+//
+//            t += dt;
+//            timestep++;
+//            _solver->_should_out = t >= output_counter * _output_freq;
+//        }
+//        _solver->solve_post_pressure();
+//
+//        double end_time = MPI_Wtime(); // 记录结束时间
+//        if (params.world_rank == 0) {
+//            double total_time = end_time - start_time;
+//            std::cout << "\nTotal simulation time: " << total_time << " s" << std::endl;
+//        }
+//        else
+//        {
+//            double start_time = MPI_Wtime(); // 记录开始时间
+//            Real t = 0.0;
+//            Real dt;
+//            uint32_t timestep = 0;
+//            Real output_counter = 0.0;
+//            _solver->initialize();
+//            while (t < _t_end) {
+//
+//                // Print progress bar
+//                if (params.world_rank == 0) logger.progress_bar(t, _t_end);
+//
+//                double pre_press_start = MPI_Wtime();
+//                _solver->solve_pre_pressure(dt);
+//                double pre_press_end = MPI_Wtime();
+//
+//                double press_start = MPI_Wtime();
+//                uint32_t it;
+//                Real res;
+//                _solver->solve_pressure(res, it);
+//                double press_end = MPI_Wtime();
+//
+//
+//                if (params.world_rank == 0) {
+//                    std::cout << "Iter count: " << it << " ";
+//                }
+//
+//                // Check if max_iter was reached
+//                if (params.world_rank == 0 && it == _solver->_max_iter) {
+//                    logger.max_iter_warning();
+//                }
+//                // Output current timestep information
+//                logger.write_log(timestep, t, dt, it, _solver->_max_iter, res);
+//
+//                double post_press_start = MPI_Wtime();
+//                _solver->solve_post_pressure();
+//                double post_press_end = MPI_Wtime();
+//
+//                /*if (params.world_rank == 0) {
+//                    std::cout << "\nTimestep: " << timestep << "\n";
+//                    std::cout << "solve_pre_pressure time: " << (pre_press_end - pre_press_start) << " s\n";
+//                    std::cout << "solve_pressure time: " << (press_end - press_start) << " s\n";
+//                    std::cout << "solve_post_pressure time: " << (post_press_end - post_press_start) << " s\n";
+//                }*/
+//
+//                // Output u,v,p
+//                if (_solver->_should_out) {
+//                    output_vtk(timestep, params);
+//                    output_counter++;
+//                }
+//
+//                t += dt;
+//                timestep++;
+//                _solver->_should_out = t >= output_counter * _output_freq;
+//                // output_vtk(timestep, params); // output every timestep for debugging
+//            }
+//            _solver->solve_post_pressure();
+//            double end_time = MPI_Wtime(); // 记录结束时间
+//            if (params.world_rank == 0) {
+//                double total_time = end_time - start_time;
+//                std::cout << "\nTotal simulation time: " << total_time << " s" << std::endl;
+//            }
+//
+//        }
+//    }
+//
+//}
+
+void Simulation::simulate(Params& params) {
+    double start_time = MPI_Wtime(); // 开始时间
+
+    if (PISO) {
+        // PISO模式
         Real t = 0.0;
         Real dt;
         uint32_t timestep = 0;
         Real output_counter = 0.0;
         _solver->initialize();
         while (t < _t_end) {
-
-            // 显示进度条
             if (params.world_rank == 0) logger.progress_bar(t, _t_end);
 
-            // 预测步
+            double pre_press_start = MPI_Wtime();
             _solver->solve_pre_pressure(dt);
+            double pre_press_end = MPI_Wtime();
 
-            // 一次压力求解与速度修正（原投影法）
+            double press_start = MPI_Wtime();
             Real res;
             uint32_t it;
             _solver->solve_pressure(res, it);
+            double press_end = MPI_Wtime();
 
-            // 检查是否达到最大迭代次数
-            if (params.world_rank == 0 && it == _solver->get_max_piso_iters()) { // 使用基类方法
+            if (params.world_rank == 0 && it == _solver->get_max_piso_iters()) {
                 logger.max_iter_warning();
             }
-
-            // 记录第一次迭代的信息
             logger.write_log(timestep, t, dt, it, _solver->get_max_piso_iters(), res);
 
-            // =====================================
-            // 调用PISO的第二次压力求解与速度修正
-            // =====================================
+            double piso_start = MPI_Wtime();
             Real res2;
             uint32_t it2;
             _solver->solve_piso(res2, it2);
+            double piso_end = MPI_Wtime();
 
-            // 检查第二次迭代是否达到最大次数
             if (params.world_rank == 0 && it2 == _solver->get_max_piso_iters()) {
                 logger.max_iter_warning();
             }
-
-            // 记录第二次迭代的信息
             logger.write_log(timestep, t, dt, it2, _solver->get_max_piso_iters(), res2);
 
-            // 后处理步骤，如计算湍流量
             _solver->solve_post_pressure();
 
-            // 输出结果（如果需要）
             if (_solver->_should_out) {
                 output_vtk(timestep, params);
                 output_counter++;
@@ -454,9 +588,17 @@ void Simulation::simulate(Params &params) {
             _solver->_should_out = t >= output_counter * _output_freq;
         }
         _solver->solve_post_pressure();
+
+        double end_time = MPI_Wtime();
+        if (params.world_rank == 0) {
+            double total_time = end_time - start_time;
+            std::cout << "\nTotal simulation time (PISO): " << total_time << " s" << std::endl;
+        }
+
     }
-    else
-    {
+    else {
+        // 非PISO模式
+        double start_time = MPI_Wtime();
         Real t = 0.0;
         Real dt;
         uint32_t timestep = 0;
@@ -464,26 +606,27 @@ void Simulation::simulate(Params &params) {
         _solver->initialize();
         while (t < _t_end) {
 
-            // Print progress bar
             if (params.world_rank == 0) logger.progress_bar(t, _t_end);
 
+            double pre_press_start = MPI_Wtime();
             _solver->solve_pre_pressure(dt);
+            double pre_press_end = MPI_Wtime();
+
+            double press_start = MPI_Wtime();
             uint32_t it;
             Real res;
             _solver->solve_pressure(res, it);
+            double press_end = MPI_Wtime();
 
-            if (params.world_rank == 0) {
-                std::cout << "Iter count: " << it << " ";
-            }
-
-            // Check if max_iter was reached
             if (params.world_rank == 0 && it == _solver->_max_iter) {
                 logger.max_iter_warning();
             }
-            // Output current timestep information
             logger.write_log(timestep, t, dt, it, _solver->_max_iter, res);
+
+            double post_press_start = MPI_Wtime();
             _solver->solve_post_pressure();
-            // Output u,v,p
+            double post_press_end = MPI_Wtime();
+
             if (_solver->_should_out) {
                 output_vtk(timestep, params);
                 output_counter++;
@@ -492,12 +635,17 @@ void Simulation::simulate(Params &params) {
             t += dt;
             timestep++;
             _solver->_should_out = t >= output_counter * _output_freq;
-            // output_vtk(timestep, params); // output every timestep for debugging
         }
         _solver->solve_post_pressure();
+
+        double end_time = MPI_Wtime();
+        if (params.world_rank == 0) {
+            double total_time = end_time - start_time;
+            std::cout << "\nTotal simulation time (non-PISO): " << total_time << " s" << std::endl;
+        }
     }
-   
 }
+
 
 void Simulation::output_vtk(int timestep, Params &params) {
     // Create a new structured grid
