@@ -4,3 +4,5 @@
 #define KE_REALIZEABLE 1
 
 #define PISO 0
+
+#define OPENMP 0

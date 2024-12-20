@@ -539,7 +539,7 @@ void Simulation::set_file_names(std::string file_name) {
 
 void Simulation::simulate(Params& params) {
     double start_time = MPI_Wtime(); // 开始时间
-
+    double count_time = 0.0;
     if (PISO) {
         // PISO模式
         Real t = 0.0;
@@ -554,11 +554,18 @@ void Simulation::simulate(Params& params) {
             _solver->solve_pre_pressure(dt);
             double pre_press_end = MPI_Wtime();
 
+
             double press_start = MPI_Wtime();
             Real res;
             uint32_t it;
             _solver->solve_pressure(res, it);
             double press_end = MPI_Wtime();
+
+            if (params.world_rank == 0) {
+                double total_time = press_end-press_start ;
+                count_time += total_time;
+                //std::cout << "\nTotal solve_pressure time (PISO): " << total_time << " s" << std::endl;
+            }
 
             if (params.world_rank == 0 && it == _solver->get_max_piso_iters()) {
                 logger.max_iter_warning();
@@ -590,10 +597,10 @@ void Simulation::simulate(Params& params) {
         _solver->solve_post_pressure();
 
         double end_time = MPI_Wtime();
-        if (params.world_rank == 0) {
-            double total_time = end_time - start_time;
-            std::cout << "\nTotal simulation time (PISO): " << total_time << " s" << std::endl;
-        }
+        //if (params.world_rank == 0) {
+        //    double total_time = end_time - start_time;
+        //    std::cout << "\nTotal simulation time (PISO): " << total_time << " s" << std::endl;
+        //}
 
     }
     else {
@@ -611,12 +618,20 @@ void Simulation::simulate(Params& params) {
             double pre_press_start = MPI_Wtime();
             _solver->solve_pre_pressure(dt);
             double pre_press_end = MPI_Wtime();
+            if (params.world_rank == 0) {
+                double total_time = pre_press_end - pre_press_start;
+                count_time += total_time;
+                
+            }
+
 
             double press_start = MPI_Wtime();
             uint32_t it;
             Real res;
             _solver->solve_pressure(res, it);
             double press_end = MPI_Wtime();
+            
+
 
             if (params.world_rank == 0 && it == _solver->_max_iter) {
                 logger.max_iter_warning();
@@ -640,8 +655,8 @@ void Simulation::simulate(Params& params) {
 
         double end_time = MPI_Wtime();
         if (params.world_rank == 0) {
-            double total_time = end_time - start_time;
-            std::cout << "\nTotal simulation time (non-PISO): " << total_time << " s" << std::endl;
+            //double total_time = end_time - start_time;
+            std::cout << "\nsolve_pre_pressure time  (non-PISO): " << count_time << " s" << std::endl;
         }
     }
 }

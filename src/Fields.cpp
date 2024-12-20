@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <iostream>
 #include <math.h>
+#include <omp.h>
+
 
 Fields::Fields(Real nu, Real dt, Real tau, int imax, int jmax, Real UI, Real VI, Real PI, Real TI, Real KI, Real EPSI,
                Real alpha, Real beta, Real gx, Real gy)
@@ -87,27 +89,27 @@ void Fields::calculate_nu_t(Grid &grid, int turb_model) {
         if (turb_model == 1) {
             if (KE_REALIZEABLE)
             {
-                // ³£Êý A0 ºÍ As µÄÈ¡Öµ£¨¸ù¾ÝÎÄÏ×»ò¾­Ñé£©
+                // ï¿½ï¿½ï¿½ï¿½ A0 ï¿½ï¿½ As ï¿½ï¿½È¡Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×»ï¿½ï¿½é£©
                 Real A0 = 4.0;
                 Real As = 0.9;
 
                 Real kij = k(i, j);
                 Real epsij = eps(i, j);
 
-                // ·ÀÖ¹³ýÁãºÍ¸ºÖµ
+                // ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Í¸ï¿½Öµ
                 Real denominator = epsij + 1e-10;
                 Real numerator = kij / denominator;
 
-                // ¼ÆËã C_mu
+                // ï¿½ï¿½ï¿½ï¿½ C_mu
                 Real C_mu = 1.0 / (A0 + As * _S(i, j) * numerator);
 
-                // È·±£ C_mu ÎªÕýÖµ
+                // È·ï¿½ï¿½ C_mu Îªï¿½ï¿½Öµ
                 C_mu = std::max(double(C_mu), 1e-5);
 
-                // ¼ÆËãÍÄÁ÷ð¤ÐÔÏµÊý
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½
                 nu_t(i, j) = C_mu * kij * kij / epsij + _nu;
 
-                // ·ÀÖ¹¸ºÖµ
+                // ï¿½ï¿½Ö¹ï¿½ï¿½Öµ
                 nu_t(i, j) = std::max(nu_t(i, j), _nu);
             }
             else//standard ke nut
@@ -200,7 +202,7 @@ void Fields::calculate_k_and_epsilon(Grid &grid, int turb_model) {
     if (turb_model == 1) { // K-epsilon
         if (KE_REALIZEABLE)
         {
-            // ³£Êý¶¨Òå
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             const Real sigma_k = 1.0;
             const Real sigma_epsilon = 1.2;
             const Real C2 = 1.9;
@@ -209,44 +211,44 @@ void Fields::calculate_k_and_epsilon(Grid &grid, int turb_model) {
                 int i = current_cell->i();
                 int j = current_cell->j();
 
-                // ÌáÈ¡µ±Ç°µ¥ÔªµÄ±äÁ¿
+                // ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½Ôªï¿½Ä±ï¿½ï¿½ï¿½
                 Real kij = K_OLD(i, j);
                 Real eij = EPS_OLD(i, j);
                 Real nut = nu_t(i, j);
-                Real S_ij = _S(i, j); // Ó¦±äÂÊÄ££¬ÐèÔÚÖ®Ç°ÒÑ¼ÆËã
+                Real S_ij = _S(i, j); // Ó¦ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½Ñ¼ï¿½ï¿½ï¿½
 
-                // ¼ÆËã¶ÔÁ÷Ïî
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 auto k_conv = Discretization::convection_uKEPS(_U, K_OLD, i, j) +
                     Discretization::convection_vKEPS(_V, K_OLD, i, j);
                 auto eps_conv = Discretization::convection_uKEPS(_U, EPS_OLD, i, j) +
                     Discretization::convection_vKEPS(_V, EPS_OLD, i, j);
 
-                // ¼ÆËãÀ©É¢Ïî£¬¿¼ÂÇ ¦Ò_k ºÍ ¦Ò_¦Å
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¢ï¿½î£¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½_k ï¿½ï¿½ ï¿½ï¿½_ï¿½ï¿½
                 auto k_diff = Discretization::laplacian_nu(K_OLD, _nu, _NU_I, _NU_J, i, j, sigma_k);
                 auto eps_diff = Discretization::laplacian_nu(EPS_OLD, _nu, _NU_I, _NU_J, i, j, sigma_epsilon);
 
-                // ¼ÆËãÍÄ¶¯ÄÜÉú²úÏî Pk
+                // ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Pk
                 Real Pk = nut * S_ij * S_ij;
 
-                // ¼ÆËã ¦Ç
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
                 Real eta = S_ij * kij / (eij + 1e-10);
 
-                // ¼ÆËã C1
+                // ï¿½ï¿½ï¿½ï¿½ C1
                 Real C1 = std::max(0.43, eta / (eta + 5.0));
 
-                // ¼ÆËã ¦Å ·½³ÌµÄÔ´Ïî
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Ìµï¿½Ô´ï¿½ï¿½
                 Real e3 = C1 * eij * Pk / (kij + 1e-10);
                 Real e4 = C2 * eij * eij / (kij + sqrt(_nu * eij) + 1e-10);
 
-                // ¸üÐÂ k
+                // ï¿½ï¿½ï¿½ï¿½ k
                 Real dkdt = -k_conv + k_diff + Pk - eij;
                 Real kij_new = kij + _dt * dkdt;
-                k(i, j) = std::max(double(kij_new), 1e-8); // ·ÀÖ¹¸ºÖµ
+                k(i, j) = std::max(double(kij_new), 1e-8); // ï¿½ï¿½Ö¹ï¿½ï¿½Öµ
 
-                // ¸üÐÂ ¦Å
+                // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
                 Real depsdt = -eps_conv + eps_diff + e3 - e4;
                 Real eij_new = eij + _dt * depsdt;
-                eps(i, j) = std::max(double(eij_new), 1e-8); // ·ÀÖ¹¸ºÖµ
+                eps(i, j) = std::max(double(eij_new), 1e-8); // ï¿½ï¿½Ö¹ï¿½ï¿½Öµ
 
             }
         }
@@ -363,25 +365,56 @@ Real Fields::damp_fnu(int i, int j, Real dist) {
 
 
 void Fields::calculate_fluxes(Grid &grid, bool calc_temp, bool turbulent) {
-    for (const auto &current_cell : grid.fluid_cells()) {
-        int i = current_cell->i();
-        int j = current_cell->j();
-        Real nu_term1, nu_term2;
-        if (turbulent) {
-            nu_term1 = Discretization::interpolate(nu_t_matrix(), i, j, 1, 0);
-            nu_term2 = Discretization::interpolate(nu_t_matrix(), i, j, 0, 1);
-        } else {
-            nu_term1 = nu_term2 = _nu;
-        }
-        f(i, j) = u(i, j) + dt() * (nu_term1 * Discretization::diffusion(u_matrix(), i, j) -
-                                    Discretization::convection_u(u_matrix(), v_matrix(), i, j));
-        g(i, j) = v(i, j) + dt() * (nu_term2 * Discretization::diffusion(v_matrix(), i, j) -
-                                    Discretization::convection_v(u_matrix(), v_matrix(), i, j));
-        if (calc_temp) {
-            f(i, j) -= _beta * _dt / 2 * (t(i, j) + t(i + 1, j)) * _gx;
-            g(i, j) -= _beta * _dt / 2 * (t(i, j) + t(i, j + 1)) * _gy;
+    if (OPENMP)
+    {
+        const auto& cells = grid.fluid_cells();
+    #pragma omp parallel for schedule(static)
+        for (int idx = 0; idx < (int)cells.size(); idx++) {
+            auto current_cell = cells[idx];
+            int i = current_cell->i();
+            int j = current_cell->j();
+            Real nu_term1, nu_term2;
+            if (turbulent) {
+                nu_term1 = Discretization::interpolate(nu_t_matrix(), i, j, 1, 0);
+                nu_term2 = Discretization::interpolate(nu_t_matrix(), i, j, 0, 1);
+            }
+            else {
+                nu_term1 = nu_term2 = _nu;
+            }
+            f(i, j) = u(i, j) + dt() * (nu_term1 * Discretization::diffusion(u_matrix(), i, j) -
+                Discretization::convection_u(u_matrix(), v_matrix(), i, j));
+            g(i, j) = v(i, j) + dt() * (nu_term2 * Discretization::diffusion(v_matrix(), i, j) -
+                Discretization::convection_v(u_matrix(), v_matrix(), i, j));
+            if (calc_temp) {
+                f(i, j) -= _beta * _dt / 2 * (t(i, j) + t(i + 1, j)) * _gx;
+                g(i, j) -= _beta * _dt / 2 * (t(i, j) + t(i, j + 1)) * _gy;
+            }
         }
     }
+    else
+    {
+        for (const auto& current_cell : grid.fluid_cells()) {
+            int i = current_cell->i();
+            int j = current_cell->j();
+            Real nu_term1, nu_term2;
+            if (turbulent) {
+                nu_term1 = Discretization::interpolate(nu_t_matrix(), i, j, 1, 0);
+                nu_term2 = Discretization::interpolate(nu_t_matrix(), i, j, 0, 1);
+            }
+            else {
+                nu_term1 = nu_term2 = _nu;
+            }
+            f(i, j) = u(i, j) + dt() * (nu_term1 * Discretization::diffusion(u_matrix(), i, j) -
+                Discretization::convection_u(u_matrix(), v_matrix(), i, j));
+            g(i, j) = v(i, j) + dt() * (nu_term2 * Discretization::diffusion(v_matrix(), i, j) -
+                Discretization::convection_v(u_matrix(), v_matrix(), i, j));
+            if (calc_temp) {
+                f(i, j) -= _beta * _dt / 2 * (t(i, j) + t(i + 1, j)) * _gx;
+                g(i, j) -= _beta * _dt / 2 * (t(i, j) + t(i, j + 1)) * _gy;
+            }
+        }
+    }
+    
 }
 
 // TODO add buoyancy term to the turbulent models
