@@ -6,6 +6,16 @@
 #include <unordered_map>
 #include <vector>
 
+
+// enum BoundaryType {
+//     BND_NOSLIP_IDX = 0,
+//     BND_FREESLIP_IDX = 1,
+//     BND_OUTLET_IDX = 2,
+//     BND_INLET_IDX = 3
+// };
+
+
+
 /**
  * @brief Abstact of boundary conditions.
  *
@@ -76,6 +86,12 @@ class Boundary {
     /// value holding the type of boundary
     uint32_t _type;
     virtual ~Boundary() = default;
+
+
+    //for dbns bc
+    virtual void enforce_boundary_conditions(Fields& field)=0 ;
+    int get_type() const { return _type; }
+
 
   protected:
     /**
@@ -159,6 +175,8 @@ class OutletBoundary : public Boundary {
      * @param[in] Field to be applied
      */
     void enforce_t(Fields &field) override;
+
+    void enforce_boundary_conditions(Fields& field) override;
     virtual ~OutletBoundary() = default;    
 };
 
@@ -226,9 +244,14 @@ class InletBoundary : public Boundary {
     /// Map holding epsilon values of all inlets
     std::unordered_map<int, Real> _inlet_EPS;
 
+    void enforce_boundary_conditions(Fields& field) override;
+
+    //void enforce_boundary_conditions(Fields& field) override;
   private:
     /// Pressure value if using pressure inlet
     Real _inlet_DP = REAL_MAX;
+    Real _inlet_rho = 1.0;
+    Real _inlet_e = 1.0;
 };
 
 /**
@@ -261,6 +284,8 @@ class NoSlipWallBoundary : public Boundary {
     /// tangential wall velocities
     std::unordered_map<int, Real> _wall_velocity;
     virtual ~NoSlipWallBoundary() = default;
+
+    void enforce_boundary_conditions(Fields& field) override;
 
   private:
     /**
@@ -312,5 +337,7 @@ class FreeSlipWallBoundary : public Boundary {
 
     /// Map with tangential wall velocities
     std::unordered_map<int, Real> _wall_velocity;
+
+    void enforce_boundary_conditions(Fields& field) override;
 
 };

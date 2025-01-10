@@ -36,7 +36,7 @@ const Real wall_velocity = 1.0;
 //// ENUMS and STRUCTS ////
 
 /// Solver type enum
-enum class SolverType { SOR, PCG };
+enum class SolverType { SOR, PCG ,DBNS};
 
 /// Border position enumm
 enum class border_position {

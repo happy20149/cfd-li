@@ -1,6 +1,6 @@
 #include "Simulation.hpp"
 #include"controal_data.hpp"
-
+#include"Fields.hpp"
 #include <algorithm>
 #include <cmath>
 #include <ctime>
@@ -21,7 +21,7 @@ namespace filesystem = std::filesystem;
 #include <vtkStructuredGrid.h>
 #include <vtkStructuredGridWriter.h>
 #include <vtkTuple.h>
-
+#include "DbnsSolver.hpp"
 Simulation::Simulation(std::string file_name, int argn, char **args, Params &params) {
 
     // Set up logging functionality
@@ -221,6 +221,13 @@ Simulation::Simulation(std::string file_name, int argn, char **args, Params &par
         if (params.world_rank == 0) {
             std::cout << "Simulation: CPU\n";
         }
+    }
+
+    //dbns solver
+    if (simulation_type_int == 4)
+    {
+        _solver = std::make_unique<DbnsSolver>();
+        _solver->solver_type = SolverType::DBNS;
     }
 #ifdef USE_CUDA
     else if (simulation_type_int == 1) {
@@ -540,6 +547,53 @@ void Simulation::set_file_names(std::string file_name) {
 void Simulation::simulate(Params& params) {
     double start_time = MPI_Wtime(); // 开始时间
     double count_time = 0.0;
+
+    // 根据求解器类型选择不同的求解流程
+    if (_solver->solver_type == SolverType::DBNS) {
+        // DBNS 模式
+        Real t = 0.0;
+        Real dt=0.01;
+        uint32_t timestep = 0;
+        Real output_counter = 0.0;
+
+        while (t < _t_end) {
+            if (params.world_rank == 0) logger.progress_bar(t, _t_end);
+
+            // 计算时间步长（显式方法）
+            //dt = _field.calculate_dt(_grid, _field.calc_temp, _turb_model);
+            _solver->_field._dt = dt;
+
+            // 显式求解密度、动量和能量
+            _solver->solve_pre_pressure(dt);
+
+            // 日志记录（根据需要调整）
+            if (params.world_rank == 0) {
+                logger.write_log(timestep, t, dt, 0, 0, 0.0); // 示例
+            }
+
+            // 后处理
+            //_solver->solve_post_pressure();
+
+            // 数据输出
+            if (_solver->_should_out) {
+                output_vtk(timestep, params);
+                output_counter++;
+            }
+
+            t += dt;
+            timestep++;
+            _solver->_should_out = t >= output_counter * _output_freq;
+        }
+
+        //_solver->solve_post_pressure();
+
+        double end_time = MPI_Wtime();
+        if (params.world_rank == 0) {
+            double total_time = end_time - start_time;
+            std::cout << "\nTotal simulation time (DBNS): " << total_time << " s" << std::endl;
+        }
+    }
+
     if (PISO) {
         // PISO模式
         Real t = 0.0;

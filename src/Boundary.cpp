@@ -308,6 +308,29 @@ void OutletBoundary::enforce_t(Fields &field) {
     }
 }
 
+void OutletBoundary::enforce_boundary_conditions(Fields& field){
+    for (auto cell : *_cells) {
+        int i = cell->i();
+        int j = cell->j();
+
+        // 设置压力
+        field.p(i, j) = field._PI; // 示例值
+
+        // 设置密度
+        field.rho(i, j) = 1.0; // 示例值，根据物理条件调整
+
+        // 设置温度
+        field.t(i, j) = 300.0; // 示例值，根据物理条件调整
+
+        // 根据状态方程计算能量
+        Real R = 287.05; // 气体常数，干空气为例
+        Real gamma = 1.4; // 比热比，干空气为例
+        field.E(i, j) = (field.p(i, j) / (gamma - 1)) + 0.5 * field.rho(i, j) * (field.u(i, j) * field.u(i, j) + field.v(i, j) * field.v(i, j));
+    }
+
+}
+
+
 /////////// Inlet ///////////
 void InletBoundary::enforce_uv(Fields &field) {
     for (auto &cell : *_cells) {
@@ -418,6 +441,43 @@ void InletBoundary::enforce_nu_t(Fields &field, int turb_model) {
     }
 }
 
+void InletBoundary::enforce_boundary_conditions(Fields& field) {
+    Real gamma = 1.4;
+    for (auto& cell : *_cells) {
+        int i = cell->i();
+        int j = cell->j();
+        int id = cell->id();
+        auto wt = _inlet_T[cell->id()];
+        //for p
+        field.p(i, j) = _inlet_DP + field._PI;
+        //for rho
+        field.rho(i, j) = _inlet_rho;
+        //for e
+        field.E(i, j) = (field.p(i, j) / (gamma - 1)) + 0.5 * field.rho(i, j) * (field.u(i, j) * field.u(i, j) + field.v(i, j) * field.v(i, j));
+        //for uv and T 
+        if (cell->is_border(border_position::RIGHT)) {
+            field.u(i, j) = _inlet_U[id];
+            field.v(i, j) = 2 * _inlet_V[id] - field.v(i + 1, j);
+            field.t(i, j) = 2 * wt - field.t(i + 1, j);
+        }
+        else if (cell->is_border(border_position::LEFT)) {
+            field.u(i, j) = _inlet_U[id];
+            field.v(i, j) = 2 * _inlet_V[id] - field.v(i - 1, j);
+            field.t(i, j) = 2 * wt - field.t(i - 1, j);
+        }
+        else if (cell->is_border(border_position::TOP)) {
+            field.u(i, j) = 2 * _inlet_U[id] - field.u(i, j + 1);
+            field.v(i, j) = _inlet_V[id];
+            field.t(i, j) = 2 * wt - field.t(i, j + 1);
+        }
+        else if (cell->is_border(border_position::BOTTOM)) {
+            field.u(i, j) = 2 * _inlet_U[id] - field.u(i, j - 1);
+            field.v(i, j) = _inlet_V[id];
+            field.t(i, j) = 2 * wt - field.t(i, j - 1);
+        }
+    }
+}
+
 /////////// NoSlip Walls ///////////
 void NoSlipWallBoundary::enforce_uv(Fields &field) {
 
@@ -483,6 +543,10 @@ void NoSlipWallBoundary::enforce_uv_diagonal(Fields &field, Cell *cell) {
     }
 }
 
+void NoSlipWallBoundary::enforce_boundary_conditions(Fields& field) {
+    //暂时不考虑该边界条件
+}
+
 /////////// FreeSlip Walls ///////////
 void FreeSlipWallBoundary::enforce_uv(Fields &field) {
     for (auto &cell : *_cells) {
@@ -503,4 +567,8 @@ void FreeSlipWallBoundary::enforce_uv(Fields &field) {
             field.v(i, j - 1) = 0;
         }
     }
+}
+
+void FreeSlipWallBoundary::enforce_boundary_conditions(Fields& field) {
+    //暂时不考虑该边界条件
 }

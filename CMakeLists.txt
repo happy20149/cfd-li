@@ -18,7 +18,7 @@ find_package(MPI REQUIRED)
 # find_package(Boost COMPONENTS filesystem REQUIRED)
 
 # VTK Library
-set(VTK_DIR "D:/VTK-8.2.0/out/install/lib/cmake/vtk-8.2")
+set(VTK_DIR "E:/VTK-8.2.0/out/install/lib/cmake/vtk-8.2")
 
 if(WIN32)
   find_package(VTK REQUIRED)

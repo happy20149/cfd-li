@@ -33,6 +33,11 @@ Fields::Fields(Real nu, Real dt, Real tau, int imax, int jmax, Real UI, Real VI,
     _KI = KI;
     _EPSI = EPSI;
     calc_temp = false;
+
+    //for dbns
+    _rho = Matrix<Real>(imax + 2, jmax + 2, 1.0); // 假设初始密度为1.0
+    _E = Matrix<Real>(imax + 2, jmax + 2, 0.5 * (UI * UI + VI * VI)); // 初始能量基于速度
+
 }
 
 void Fields::calculate_rs(Grid &grid) {
@@ -66,6 +71,10 @@ Real &Fields::eps(int i, int j) { return _EPS(i, j); }
 Real &Fields::nu_t(int i, int j) { return _NU_T(i, j); }
 Real &Fields::nu_i(int i, int j) { return _NU_I(i, j); }
 Real &Fields::nu_j(int i, int j) { return _NU_J(i, j); }
+//for dbns
+Real& Fields::rho(int i, int j) { return _rho(i, j); }
+Real& Fields::E(int i, int j) { return _E(i, j); }
+
 
 Matrix<Real> &Fields::p_matrix() { return _P; }
 Matrix<Real> &Fields::u_matrix() { return _U; }
@@ -76,6 +85,9 @@ Matrix<Real> &Fields::g_matrix() { return _G; }
 Matrix<Real> &Fields::k_matrix() { return _K; }
 Matrix<Real> &Fields::eps_matrix() { return _EPS; }
 Matrix<Real> &Fields::nu_t_matrix() { return _NU_T; }
+//for dbns
+Matrix<Real>& Fields::rho_matrix() { return _rho; }
+Matrix<Real>& Fields::E_matrix() { return _E; }
 
 Real Fields::dt() const { return _dt; }
 
@@ -501,4 +513,12 @@ Real Fields::calculate_dt(Grid &grid, bool calc_temp, int turbulence) {
     }
     _dt = _tau * minimum;
     return _dt;
+}
+
+//for dbns
+Real Fields::calculate_pressure(int i, int j) const {
+    // 理想气体状态方程 p = rho * R * T  此处T算为300K
+    Real R = 287.05; // 比如干空气的气体常数 J/(kg·K)
+    Real T = 300;
+    return _rho(i, j) * R * T;
 }

@@ -264,4 +264,16 @@ class Fields {
 
     /// 应变率张量的模，可实现的ke模型
     Matrix<Real> _Ske;
+
+    //for dbns
+    Real& rho(int i, int j);
+    Real& E(int i, int j);
+
+    Matrix<Real>& rho_matrix();
+    Matrix<Real>& E_matrix();
+
+    Matrix<Real> _rho;
+    Matrix<Real> _E;
+
+    Real calculate_pressure(int i, int j) const;
 };
