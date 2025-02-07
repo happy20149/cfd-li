@@ -20,3 +20,11 @@ else()
 
 endif()
 
+sst 无粘
+![alt text](AngledNACA.png)
+
+ke
+
+
+
+![](file:///D:/cfd-li/%E5%BE%AE%E4%BF%A1%E6%88%AA%E5%9B%BE_20250207095302.png)
