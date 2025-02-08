@@ -522,3 +522,24 @@ Real Fields::calculate_pressure(int i, int j) const {
     Real T = 300;
     return _rho(i, j) * R * T;
 }
+
+	 void Fields::set_turbulence_model(std::shared_ptr<TurbulenceModel> model)
+	 {
+	     turbulence_model_ = model;
+	 }
+
+    void Fields::calculate_nu_t(Grid& grid)
+	 {
+	     if (turbulence_model_)
+	     {
+	         turbulence_model_->calculate_nu_t(*this, grid);
+	     }
+	 }
+
+     void Fields::calculate_k_and_epsilon(Grid& grid)
+	 {
+	     if (turbulence_model_)
+	     {
+	         turbulence_model_->calculate_k_and_epsilon(*this, grid);
+	     }
+	 }

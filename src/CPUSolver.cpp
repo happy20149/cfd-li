@@ -1,8 +1,19 @@
 #include "CPUSolver.hpp"
 #include "Communication.hpp"
 #include<omp.h>
+#include"controal_data.hpp"
+#include "KEpsilonStanrdModel.hpp"
 
 void CPUSolver::initialize() {
+    if (STRATEGY)
+    {
+        if (_turb_model == 1) { // ä½¿ç”¨æ ‡å‡† k-Îµ æ¨¡åž‹
+            auto model = std::make_shared<KEpsilonStanrdModel>();
+            _field.set_turbulence_model(model);
+        }
+    }
+
+
     if (solver_type == SolverType::PCG) {
         build_pcg_matrix();
     }
@@ -69,8 +80,19 @@ void CPUSolver::solve_post_pressure() {
     Communication::communicate(&params, _field.v_matrix());
 
      if (_turb_model != 0) {
-        // Compute turbulent viscosity and set boundary conditions
+        if (STRATEGY)
+        {//é‡‡ç”¨ç­–ç•¥æ¨¡å¼è®¡ç®—æ¹æµæ¨¡åž‹
+            if (_field.turbulence_model_) {
+                // Compute turbulent viscosity and set boundary conditions
+                _field.calculate_nu_t(_grid);
+            }
+        }
+        else
+        {
+            // Compute turbulent viscosity and set boundary conditions
         _field.calculate_nu_t(_grid, _turb_model);
+        }
+        
         for (const auto &boundary : _boundaries) {
             boundary->enforce_nu_t(_field, _turb_model);
         }
@@ -271,9 +293,9 @@ void CPUSolver::solve_piso(Real& residual, uint32_t& iterations) {
     residual = REAL_MAX;
     iterations = 0;
 
-    // PISOµü´úÑ­»·
+    // PISOï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
     while (iterations < _max_piso_iters && residual > _piso_tolerance) {
-        // 1. Ñ¹Á¦Çó½â
+        // 1. Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½
         Real pressure_residual = 0.0;
         if (solver_type == SolverType::SOR) {
             pressure_residual = solve_sor();
@@ -282,24 +304,24 @@ void CPUSolver::solve_piso(Real& residual, uint32_t& iterations) {
             pressure_residual = solve_pcg(iterations);
         }
 
-        // 2. Ç¿ÖÆÖ´ÐÐÑ¹Á¦±ß½çÌõ¼þ
+        // 2. Ç¿ï¿½ï¿½Ö´ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½
         for (const auto& boundary : _boundaries) {
             boundary->enforce_p(_field);
         }
 
-        // 3. ¼ÆËã²¢ÐÞÕýÔ¤²âËÙ¶È³¡
+        // 3. ï¿½ï¿½ï¿½ã²¢ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½Ù¶È³ï¿½
         _field.calculate_velocities(_grid);
 
-        // 4. Í¨ÐÅÐÞÕýºóµÄËÙ¶È³¡
+        // 4. Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È³ï¿½
         Communication::communicate(&params, _field.u_matrix());
         Communication::communicate(&params, _field.v_matrix());
 
-        // 5. Ç¿ÖÆÖ´ÐÐËÙ¶È±ß½çÌõ¼þ
+        // 5. Ç¿ï¿½ï¿½Ö´ï¿½ï¿½ï¿½Ù¶È±ß½ï¿½ï¿½ï¿½ï¿½ï¿½
         for (auto& boundary : _boundaries) {
             boundary->enforce_uv(_field);
         }
 
-        // 6. ¼ÆËã²Ð²îÒÔ¼ì²éÊÕÁ²
+        // 6. ï¿½ï¿½ï¿½ï¿½Ð²ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         Real local_residual = 0.0;
         for (auto& cell : _grid.fluid_cells()) {
             int i = cell->i();
@@ -314,7 +336,7 @@ void CPUSolver::solve_piso(Real& residual, uint32_t& iterations) {
         iterations++;
     }
 
-    // 7. ËÙ¶ÈÐÞÕý²½Öè£¨È·±£ÖÊÁ¿ÊØºã£©
+    // 7. ï¿½Ù¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è£¨È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Øºã£©
     _field.calculate_velocities(_grid);
     Communication::communicate(&params, _field.u_matrix());
     Communication::communicate(&params, _field.v_matrix());
@@ -323,7 +345,7 @@ void CPUSolver::solve_piso(Real& residual, uint32_t& iterations) {
         boundary->enforce_uv(_field);
     }
 
-    // 8. ¼ÆËã×îÖÕ²Ð²î
+    // 8. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ²Ð²ï¿½
     Real final_residual = 0.0;
     for (auto& cell : _grid.fluid_cells()) {
         int i = cell->i();

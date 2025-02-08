@@ -3,6 +3,8 @@
 #include "Datastructures.hpp"
 #include "Discretization.hpp"
 #include "Grid.hpp"
+#include "TurbulenceModel.hpp"
+
 
 /**
  * @brief Class of container and modifier for the physical fields
@@ -262,7 +264,7 @@ class Fields {
     /// Whether we are solving the energy equation
     bool calc_temp;
 
-    /// 应变率张量的模，可实现的ke模型
+    /// 应锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷模锟斤拷锟斤拷实锟街碉拷ke模锟斤拷
     Matrix<Real> _Ske;
 
     //for dbns
@@ -276,4 +278,12 @@ class Fields {
     Matrix<Real> _E;
 
     Real calculate_pressure(int i, int j) const;
+
+    
+
+  std::shared_ptr<TurbulenceModel> turbulence_model_;
+   void set_turbulence_model(std::shared_ptr<TurbulenceModel> model);
+
+   void calculate_nu_t(Grid& grid);
+   void calculate_k_and_epsilon(Grid& grid);
 };

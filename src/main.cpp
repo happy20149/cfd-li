@@ -6,14 +6,17 @@
 int main(int argn, char **args) {
     Params params;
     Communication::init_mpi(&params);
+    std::string file_name;
+    
     if (argn > 1) {
-        std::string file_name{args[1]};
-        Simulation problem(file_name, argn, args, params);
-        problem.simulate(params);
-
+        file_name = args[1];  // Use the provided file name
     } else {
-        std::cout << "Error: No input file is provided to vortigen." << std::endl;
-        std::cout << "Example usage: /path/to/vortigen /path/to/input_data.dat" << std::endl;
+        // Default file path when no argument is provided
+        file_name = "D:\\cfd-li\\example_cases\\StepFlowTurb\\StepFlowTurb.dat";
+        std::cout << "No input file provided. Using default file: " << file_name << std::endl;
     }
+
+    Simulation problem(file_name, argn, args, params);
+    problem.simulate(params);
     Communication::finalize();
 }

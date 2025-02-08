@@ -1,8 +1,10 @@
 #pragma once
-//用于存储控制全局变量参数
-//是否开启可实现的ke模型
+//锟斤拷锟节存储锟斤拷锟斤拷全锟街憋拷锟斤拷锟斤拷锟斤拷
+//锟角凤拷锟斤拷锟斤拷实锟街碉拷ke模锟斤拷
 #define KE_REALIZEABLE 1
 
 #define PISO 0
 
 #define OPENMP 0
+
+#define STRATEGY 1
